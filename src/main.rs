@@ -945,11 +945,24 @@ fn resolve_context(cli: &Cli) -> anyhow::Result<ResolvedContext> {
         Err(_) => bail!("$HOME not set"),
     };
 
-    resolved.allow_unix_socket = canonicalize_unix_socket_paths(
-        &cli.allow_unix_socket,
-        &home_dir,
-        &resolved.allow_unix_socket,
-    );
+    let config_unix_sockets: Vec<PathBuf> = resolved
+        .allow_unix_socket
+        .iter()
+        .filter(|p| {
+            if crate::is_unsafe_root(p, &home_dir) {
+                ui::warn(&format!(
+                    "allow.unix_socket path {} is an unsafe root; skipped",
+                    p.display()
+                ));
+                false
+            } else {
+                true
+            }
+        })
+        .cloned()
+        .collect();
+    resolved.allow_unix_socket =
+        canonicalize_unix_socket_paths(&cli.allow_unix_socket, &home_dir, &config_unix_sockets);
 
     // Resolve project directory
     let project_dir = match &cli.project_dir {

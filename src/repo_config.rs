@@ -72,6 +72,8 @@ pub struct ProposeAllowSection {
     #[serde(default)]
     pub write: Vec<String>,
     #[serde(default)]
+    pub unix_socket: Vec<String>,
+    #[serde(default)]
     pub ports: Vec<u16>,
     #[serde(default)]
     pub localhost: Vec<u16>,
@@ -200,8 +202,9 @@ fn validate_repo_config(config: &RepoConfig) -> Result<(), String> {
         .read
         .iter()
         .chain(config.propose.allow.write.iter())
+        .chain(config.propose.allow.unix_socket.iter())
     {
-        reject_path_traversal(path, "propose.allow.read/write")?;
+        reject_path_traversal(path, "propose.allow path")?;
         crate::sandbox::validate_sbpl_path(&PathBuf::from(path))?;
     }
 
@@ -277,6 +280,9 @@ pub fn proposed_keys(propose: &ProposeSection) -> Vec<&'static str> {
     }
     if !propose.allow.write.is_empty() {
         keys.push("allow.write");
+    }
+    if !propose.allow.unix_socket.is_empty() {
+        keys.push("allow.unix_socket");
     }
     if !propose.allow.ports.is_empty() {
         keys.push("allow.ports");

@@ -243,6 +243,8 @@ pub struct AllowConfig {
     pub read: Vec<String>,
     /// Additional paths to allow writing.
     pub write: Vec<String>,
+    /// Unix domain socket paths for connect-only IPC (macOS Seatbelt).
+    pub unix_socket: Vec<String>,
     /// Additional outbound TCP ports beyond 443.
     pub ports: Vec<u16>,
     /// Localhost ports to allow (localhost is blocked by default).

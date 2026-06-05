@@ -38,6 +38,7 @@ pub fn repo_key_target(key_info: &ConfigKeyInfo) -> Option<RepoKeyTarget> {
         // Propose arrays
         ("allow", "read") => Some(RepoKeyTarget::ProposeAllow("read")),
         ("allow", "write") => Some(RepoKeyTarget::ProposeAllow("write")),
+        ("allow", "unix_socket") => Some(RepoKeyTarget::ProposeAllow("unix_socket")),
         ("allow", "ports") => Some(RepoKeyTarget::ProposeAllow("ports")),
         ("allow", "localhost") => Some(RepoKeyTarget::ProposeAllow("localhost")),
         // Propose proxy

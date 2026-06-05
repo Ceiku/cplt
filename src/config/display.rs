@@ -207,6 +207,14 @@ pub fn display_config(loaded: Option<&LoadedConfig>) {
             c.allow.write
         );
     }
+    if c.allow.unix_socket.is_empty() {
+        println!("{blue}[cplt]{nc}    unix_socket      = {dim}[]{nc}");
+    } else {
+        println!(
+            "{blue}[cplt]{nc}    unix_socket      = {yellow}{:?}{nc}",
+            c.allow.unix_socket
+        );
+    }
     if c.allow.ports.is_empty() {
         println!("{blue}[cplt]{nc}    ports            = {dim}[]{nc}");
     } else {

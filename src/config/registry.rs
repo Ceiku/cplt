@@ -115,6 +115,14 @@ pub(super) const CONFIG_KEYS: &[ConfigKeyInfo] = &[
     },
     ConfigKeyInfo {
         section: "allow",
+        key: "unix_socket",
+        value_type: ConfigValueType::StrArray,
+        dangerous: true,
+        default_display: "[]",
+        description: "Unix domain socket paths for connect-only IPC (e.g. broker sockets). macOS only; unsafe roots rejected.",
+    },
+    ConfigKeyInfo {
+        section: "allow",
         key: "ports",
         value_type: ConfigValueType::U16Array,
         dangerous: false,

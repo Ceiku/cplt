@@ -130,8 +130,16 @@ impl Config {
         }
         allow_write.extend(cli.allow_write);
 
-        // Unix socket connect: CLI only until [allow] unix_socket lands in config.toml
-        let allow_unix_socket = cli.allow_unix_socket;
+        // Unix socket connect: config file paths (CLI merged in main.rs with unsafe-root checks)
+        let mut allow_unix_socket: Vec<PathBuf> = Vec::new();
+        for s in &self.allow.unix_socket {
+            match resolve_config_path(s, config_dir.as_ref()) {
+                Ok(p) => allow_unix_socket.push(p),
+                Err(e) => {
+                    ui::warn(&format!("Warning: allow.unix_socket path {s:?}: {e}"));
+                }
+            }
+        }
 
         // Deny-paths: merge config + CLI
         // SECURITY: config deny paths MUST resolve — a silently dropped deny is dangerous
@@ -803,6 +811,14 @@ impl Resolved {
                 }
             }
         }
+        if is_approved("allow.unix_socket") {
+            for path_str in &repo_config.propose.allow.unix_socket {
+                let path = expand_tilde(path_str);
+                if !self.allow_unix_socket.contains(&path) {
+                    self.allow_unix_socket.push(path);
+                }
+            }
+        }
 
         // Port proposals
         if is_approved("allow.ports") {
@@ -870,6 +886,7 @@ blocked_domains = "~/my-blocklist.txt"
 [allow]
 read = ["/opt/homebrew/share"]
 write = ["/tmp/sandbox-out"]
+unix_socket = ["/tmp/broker.sock"]
 
 [deny]
 paths = ["~/.config/gcloud"]
@@ -886,6 +903,7 @@ validate = false
         );
         assert_eq!(config.allow.read, vec!["/opt/homebrew/share"]);
         assert_eq!(config.allow.write, vec!["/tmp/sandbox-out"]);
+        assert_eq!(config.allow.unix_socket, vec!["/tmp/broker.sock"]);
         assert_eq!(config.deny.paths, vec!["~/.config/gcloud"]);
         assert_eq!(config.sandbox.validate, Some(false));
     }

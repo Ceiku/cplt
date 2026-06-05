@@ -69,6 +69,11 @@ pub fn default_config_contents() -> String {
 # ]
 # write = []
 #
+# Unix domain socket paths for connect-only IPC (macOS). Broker sockets, etc.
+# unix_socket = [
+#     "~/Library/Application Support/agent-broker/agent-broker.sock",
+# ]
+#
 # Additional outbound TCP ports beyond 443.
 # Use for external services.
 # ports = [8080]
