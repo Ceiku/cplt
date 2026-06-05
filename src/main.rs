@@ -156,6 +156,8 @@ struct Cli {
     allow_read: Vec<PathBuf>,
 
     /// Let the agent read AND write files outside the project directory.
+    /// On macOS, also allows Unix domain socket bind/connect on these paths
+    /// (needed for broker IPC, e.g. subro's agent-broker over UDS).
     /// Use carefully — this gives the agent full access to modify these paths.
     /// Can be specified multiple times.
     #[arg(long = "allow-write", value_name = "PATH")]

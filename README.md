@@ -298,7 +298,7 @@ The project directory is the primary writable workspace, plus a narrow allowlist
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `-d, --project-dir <DIR>`  | Which directory Copilot can work in. Defaults to the current git repo root.                                                                       |
 | `--allow-read <PATH>`      | Let Copilot read (read-only) files outside the project (e.g. shared libraries, docs). Can be repeated.                                            |
-| `--allow-write <PATH>`     | Let Copilot read AND write outside the project. Use carefully. Can be repeated.                                                                   |
+| `--allow-write <PATH>`     | Let Copilot read AND write outside the project. On macOS, also allows Unix domain socket bind/connect on these paths (broker IPC, e.g. [subro](https://github.com/Ceiku/subro) agent-broker). Use carefully. Can be repeated. |
 | `--deny-path <PATH>`       | Block a path that would otherwise be allowed. Deny always wins. Can be repeated.                                                                  |
 | `--allow-port <PORT>`      | Allow outbound TCP on an extra port (default: only 443). Can be repeated.                                                                         |
 | `--allow-localhost <PORT>` | Allow outbound to `localhost` on a specific port (localhost is blocked by default). Use for MCP servers or dev servers. Can be repeated.          |
@@ -533,6 +533,16 @@ cplt --agent shell --print-profile
 ```
 
 The sandbox applies the same deny-by-default rules — filesystem isolation, network restrictions, env sanitization. Shell config directories (fish variables/history, zsh history) are writable.
+
+**Broker UDS (subro):** Tools like [subro](https://github.com/Ceiku/subro) forward privileged commands to a host broker over a Unix domain socket. Pass the broker socket directory and socket file via `--allow-write` (macOS Seatbelt requires explicit UDS connect rules in addition to filesystem write):
+
+```bash
+cplt --agent shell -y \
+  --allow-write "$BROKER_SOCK_DIR" \
+  --allow-write "$BROKER_SOCK" \
+  --pass-env BROKER_SOCK --pass-env BROKER_SOCKET_TOKEN \
+  -- bash -c 'mvn -v'
+```
 
 ### Examples
 

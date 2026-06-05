@@ -552,7 +552,7 @@ cplt refuses to sandbox overly broad directories that would grant the agent acce
 
 #### CLI Path Handling
 
-- **Allow paths** (`--allow-read`, `--allow-write`): canonicalized; unresolvable paths are warned and skipped
+- **Allow paths** (`--allow-read`, `--allow-write`): canonicalized; unresolvable paths are warned and skipped. On macOS, `--allow-write` also grants Unix domain socket bind/connect on those paths only (needed for broker IPC such as subro's agent-broker); file-write alone does not permit `connect(2)` under Seatbelt.
 - **Deny paths** (`--deny-path`): canonicalized; unresolvable paths cause a **hard error** (silently dropping a deny rule is a security risk)
 
 ### Layer 4: Per-Repo Config Trust Model (`.cplt.toml`)
