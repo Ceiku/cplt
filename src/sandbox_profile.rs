@@ -164,7 +164,6 @@ pub fn generate_profile(opts: &ProfileOptions) -> String {
         opts.proxy_port,
         opts.localhost_ports,
     );
-    emit_user_unix_socket_allows(&mut sb, opts.extra_write);
     emit_unix_socket_connect_allows(&mut sb, opts.extra_unix_socket, opts.extra_deny);
     // Sensitive project file denies MUST come after all user-configured allows.
     // SBPL uses last-match-wins, so a user allow like `allow.read = ["~/Repos"]`
@@ -893,39 +892,6 @@ fn emit_user_allows(sb: &mut String, extra_read: &[PathBuf], extra_write: &[Path
         }
         sbpl!(sb);
     }
-}
-
-/// Unix domain socket bind/connect for user `--allow-write` paths.
-///
-/// Seatbelt treats file-write on a socket inode separately from connect(2).
-/// Broker IPC (e.g. subro's agent-broker) and other daemon clients need
-/// explicit network-outbound rules. Emitted after `emit_network_rules` so
-/// last-match-wins preserves the allow. Only paths the user explicitly
-/// passed via `--allow-write` are included — no blanket UDS access.
-fn emit_user_unix_socket_allows(sb: &mut String, extra_write: &[PathBuf]) {
-    if extra_write.is_empty() {
-        return;
-    }
-    sbpl!(sb, ";; Unix domain sockets for user --allow-write paths");
-    for path in extra_write {
-        let p = path.to_string_lossy();
-        // Connect to existing sockets (broker clients, IPC daemons).
-        sbpl!(sb, "(allow network-outbound (literal \"{p}\"))");
-        sbpl!(
-            sb,
-            "(allow network-outbound (remote unix-socket (subpath \"{p}\")))"
-        );
-        // Bind/accept for processes that create sockets in allowed dirs.
-        sbpl!(
-            sb,
-            "(allow network-bind (local unix-socket (subpath \"{p}\")))"
-        );
-        sbpl!(
-            sb,
-            "(allow network-inbound (local unix-socket (subpath \"{p}\")))"
-        );
-    }
-    sbpl!(sb);
 }
 
 /// Connect-only Unix domain socket access for `--allow-unix-socket` paths.

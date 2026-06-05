@@ -1313,13 +1313,13 @@ s.close()
     }
 
     #[test]
-    fn real_profile_allow_write_unix_socket_connect() {
+    fn real_profile_allow_write_does_not_grant_unix_socket_connect() {
         require_sandbox!();
         let project = fs::canonicalize(".").unwrap();
         let home = home_dir();
 
         let sock_dir = std::env::temp_dir().join(format!(
-            "cplt-uds-test-{}-{}",
+            "cplt-uds-deny-{}-{}",
             std::process::id(),
             TEST_COUNTER.fetch_add(1, Ordering::SeqCst)
         ));
@@ -1327,55 +1327,57 @@ s.close()
         let sock_dir = fs::canonicalize(&sock_dir).unwrap();
         let sock_path = sock_dir.join("echo.sock");
         let sock_str = sock_path.to_string_lossy().into_owned();
-        let dir_str = sock_dir.to_string_lossy().into_owned();
 
-        let extra_write = vec![sock_dir.clone(), sock_path.clone()];
-        let mut opts = default_opts(&project, &home);
-        opts.extra_write = &extra_write;
-        let profile = write_real_profile(&opts);
-
-        // Server and client both run inside the sandbox; --allow-write grants UDS.
-        let cmd = format!(
+        // Server outside sandbox
+        let server_cmd = format!(
             r#"python3 -c "
-import socket, os, threading, time
+import socket, os
 SOCK = '{sock_str}'
 try: os.unlink(SOCK)
 except: pass
 s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 s.bind(SOCK)
 s.listen(1)
-s.settimeout(3)
-def accept():
-    try:
-        c,_ = s.accept()
-        c.send(b'OK')
-        c.close()
-    except: pass
-t = threading.Thread(target=accept)
-t.start()
-time.sleep(0.2)
-c = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-c.connect(SOCK)
-print(c.recv(10).decode())
-c.close()
+s.settimeout(5)
+conn, _ = s.accept()
+conn.sendall(b'OK')
+conn.close()
 s.close()
 os.unlink(SOCK)
-t.join(2)
+" &
+sleep 0.3
+"#
+        );
+        let _ = Command::new("bash").arg("-c").arg(&server_cmd).status();
+
+        let extra_write = vec![sock_dir.clone(), sock_path.clone()];
+        let mut opts = default_opts(&project, &home);
+        opts.extra_write = &extra_write;
+        let profile = write_real_profile(&opts);
+
+        let client_cmd = format!(
+            r#"python3 -c "
+import socket
+s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+try:
+    s.connect('{sock_str}')
+    print('EXPOSED')
+except PermissionError:
+    print('BLOCKED')
+except OSError as e:
+    print('BLOCKED' if e.errno == 1 else f'ERROR:{{e}}')
+finally:
+    s.close()
 ""#
         );
-        let (output, success) = run_sandboxed(&profile, &cmd);
+        let (output, _) = run_sandboxed(&profile, &client_cmd);
 
         fs::remove_file(&profile).ok();
-        let _ = fs::remove_file(&sock_path);
         let _ = fs::remove_dir(&sock_dir);
 
         assert!(
-            success,
-            "UDS bind+connect should succeed in {dir_str}, got: {output}"
-        );
-        assert!(
-            output.contains("OK"),
-            "UDS echo response expected, got: {output}"
+            output.contains("BLOCKED"),
+            "--allow-write alone must not allow UDS connect, got: {output}"
         );
     }
 

@@ -298,7 +298,7 @@ The project directory is the primary writable workspace, plus a narrow allowlist
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `-d, --project-dir <DIR>`  | Which directory Copilot can work in. Defaults to the current git repo root.                                                                       |
 | `--allow-read <PATH>`      | Let Copilot read (read-only) files outside the project (e.g. shared libraries, docs). Can be repeated.                                            |
-| `--allow-write <PATH>`     | Let Copilot read AND write outside the project. On macOS, also allows Unix domain socket bind/connect on these paths (legacy — prefer `--allow-unix-socket`). Use carefully. Can be repeated. |
+| `--allow-write <PATH>`     | Let Copilot read AND write outside the project. Does not grant Unix socket connect — use `--allow-unix-socket` for broker IPC. Use carefully. Can be repeated. |
 | `--allow-unix-socket <PATH>` | Allow connect(2) to a Unix domain socket at PATH (macOS). Connect-only — preferred for broker IPC (e.g. [subro](https://github.com/Ceiku/subro) agent-broker). Can be repeated. |
 | `--deny-path <PATH>`       | Block a path that would otherwise be allowed. Deny always wins. Can be repeated.                                                                  |
 | `--allow-port <PORT>`      | Allow outbound TCP on an extra port (default: only 443). Can be repeated.                                                                         |

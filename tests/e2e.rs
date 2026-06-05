@@ -799,16 +799,10 @@ mod e2e_tests {
             "--allow-write should grant write.\nstdout: {stdout}"
         );
         assert!(
-            stdout.contains(&format!(
+            !stdout.contains(&format!(
                 "(allow network-outbound (literal \"{allow_str}\"))"
             )),
-            "--allow-write should grant UDS connect.\nstdout: {stdout}"
-        );
-        assert!(
-            stdout.contains(&format!(
-                "(allow network-outbound (remote unix-socket (subpath \"{allow_str}\")))"
-            )),
-            "--allow-write should grant UDS connect (subpath).\nstdout: {stdout}"
+            "--allow-write must not grant UDS connect.\nstdout: {stdout}"
         );
     }
 

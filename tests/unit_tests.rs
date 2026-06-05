@@ -2412,15 +2412,10 @@ fn config_options_parity_across_backends() {
         profile.contains("/extra/write"),
         "SBPL: extra_write should appear in profile"
     );
-    // extra_write → SBPL unix-socket connect (legacy; prefer --allow-unix-socket)
+    // extra_write must NOT grant unix-socket connect (use --allow-unix-socket)
     assert!(
-        profile.contains("(allow network-outbound (literal \"/extra/write\"))"),
-        "SBPL: extra_write should grant UDS connect (literal)"
-    );
-    assert!(
-        profile
-            .contains("(allow network-outbound (remote unix-socket (subpath \"/extra/write\")))"),
-        "SBPL: extra_write should grant UDS connect (subpath)"
+        !profile.contains("(allow network-outbound (literal \"/extra/write\"))"),
+        "SBPL: extra_write must not grant UDS connect"
     );
     // scratch_dir → SBPL allows
     assert!(
