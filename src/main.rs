@@ -163,6 +163,13 @@ struct Cli {
     #[arg(long = "allow-write", value_name = "PATH")]
     allow_write: Vec<PathBuf>,
 
+    /// Allow connect(2) to a Unix domain socket at PATH (macOS Seatbelt).
+    /// Connect-only — does not grant bind/listen or filesystem write.
+    /// Preferred over relying on `--allow-write` for broker IPC (e.g. subro).
+    /// Can be specified multiple times.
+    #[arg(long = "allow-unix-socket", value_name = "PATH")]
+    allow_unix_socket: Vec<PathBuf>,
+
     /// Block access to a specific path, even if it would normally be allowed.
     /// Deny rules always win over allow rules. Use this to protect sensitive
     /// files inside otherwise-allowed directories.
@@ -822,6 +829,34 @@ fn canonicalize_paths(paths: &[PathBuf], flag_name: &str) -> Vec<PathBuf> {
         .collect()
 }
 
+/// Canonicalize `--allow-unix-socket` paths and reject overly broad roots.
+fn canonicalize_unix_socket_paths(
+    cli_paths: &[PathBuf],
+    home: &Path,
+    config_paths: &[PathBuf],
+) -> Vec<PathBuf> {
+    let mut out: Vec<PathBuf> = config_paths.to_vec();
+    for p in cli_paths {
+        match std::fs::canonicalize(p) {
+            Ok(c) => {
+                if crate::is_unsafe_root(&c, home) {
+                    ui::warn(&format!(
+                        "--allow-unix-socket path {} resolves to unsafe root {}; skipped",
+                        p.display(),
+                        c.display()
+                    ));
+                } else {
+                    out.push(c);
+                }
+            }
+            Err(e) => {
+                ui::warn(&format!("--allow-unix-socket path {}: {e}", p.display()));
+            }
+        }
+    }
+    out
+}
+
 /// Canonicalize deny-paths, failing on any error (security: silent drops are dangerous).
 fn canonicalize_deny_paths(paths: &[PathBuf]) -> anyhow::Result<Vec<PathBuf>> {
     paths
@@ -877,6 +912,7 @@ fn resolve_context(cli: &Cli) -> anyhow::Result<ResolvedContext> {
         allow_private_domains: cli.allow_private_domains.clone(),
         allow_read: cli_allow_read,
         allow_write: cli_allow_write,
+        allow_unix_socket: Vec::new(), // merged after $HOME is resolved
         deny_paths: cli_deny_paths,
         allow_ports: cli.allow_ports.clone(),
         allow_localhost: cli.allow_localhost.clone(),
@@ -909,6 +945,12 @@ fn resolve_context(cli: &Cli) -> anyhow::Result<ResolvedContext> {
             .map_err(|e| anyhow::anyhow!("Cannot resolve $HOME ({h}): {e}"))?,
         Err(_) => bail!("$HOME not set"),
     };
+
+    resolved.allow_unix_socket = canonicalize_unix_socket_paths(
+        &cli.allow_unix_socket,
+        &home_dir,
+        &resolved.allow_unix_socket,
+    );
 
     // Resolve project directory
     let project_dir = match &cli.project_dir {
@@ -1451,6 +1493,7 @@ fn run(cli: Cli) -> anyhow::Result<ExitCode> {
         home_dir: &home_dir,
         extra_read: &resolved.allow_read,
         extra_write: &resolved.allow_write,
+        extra_unix_socket: &resolved.allow_unix_socket,
         extra_deny: &resolved.deny_paths,
         existing_home_tool_dirs: Some(&existing_home_tool_dirs),
         existing_app_dirs: Some(&existing_app_dirs),

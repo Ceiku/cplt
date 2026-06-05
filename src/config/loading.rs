@@ -130,6 +130,9 @@ impl Config {
         }
         allow_write.extend(cli.allow_write);
 
+        // Unix socket connect: CLI only until [allow] unix_socket lands in config.toml
+        let allow_unix_socket = cli.allow_unix_socket;
+
         // Deny-paths: merge config + CLI
         // SECURITY: config deny paths MUST resolve — a silently dropped deny is dangerous
         let mut deny_paths: Vec<PathBuf> = Vec::new();
@@ -312,6 +315,7 @@ impl Config {
         for p in allow_read
             .iter()
             .chain(allow_write.iter())
+            .chain(allow_unix_socket.iter())
             .chain(deny_paths.iter())
         {
             validate_sbpl_path(p)?;
@@ -352,6 +356,7 @@ impl Config {
             allow_private_domains,
             allow_read,
             allow_write,
+            allow_unix_socket,
             deny_paths,
             allow_ports,
             allow_localhost,
@@ -431,6 +436,14 @@ impl Resolved {
             for p in &self.allow_write {
                 eprintln!(
                     "{blue}[cplt]{nc}    Extra write:   {yellow}allowed{nc}     {}",
+                    p.display()
+                );
+            }
+        }
+        if !self.allow_unix_socket.is_empty() {
+            for p in &self.allow_unix_socket {
+                eprintln!(
+                    "{blue}[cplt]{nc}    Unix socket:   {green}connect{nc}     {}",
                     p.display()
                 );
             }

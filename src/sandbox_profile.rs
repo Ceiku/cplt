@@ -33,6 +33,8 @@ pub struct ProfileOptions<'a> {
     pub home_dir: &'a Path,
     pub extra_read: &'a [PathBuf],
     pub extra_write: &'a [PathBuf],
+    /// Explicit Unix socket paths for connect-only IPC (`--allow-unix-socket`).
+    pub extra_unix_socket: &'a [PathBuf],
     pub extra_deny: &'a [PathBuf],
     /// If `Some`, only include these home tool dirs (tighter profile via discovery).
     /// If `None`, all known home tool dirs are included.
@@ -163,6 +165,7 @@ pub fn generate_profile(opts: &ProfileOptions) -> String {
         opts.localhost_ports,
     );
     emit_user_unix_socket_allows(&mut sb, opts.extra_write);
+    emit_unix_socket_connect_allows(&mut sb, opts.extra_unix_socket, opts.extra_deny);
     // Sensitive project file denies MUST come after all user-configured allows.
     // SBPL uses last-match-wins, so a user allow like `allow.read = ["~/Repos"]`
     // would override the .env deny if emitted before it.
@@ -921,6 +924,51 @@ fn emit_user_unix_socket_allows(sb: &mut String, extra_write: &[PathBuf]) {
             sb,
             "(allow network-inbound (local unix-socket (subpath \"{p}\")))"
         );
+    }
+    sbpl!(sb);
+}
+
+/// Connect-only Unix domain socket access for `--allow-unix-socket` paths.
+///
+/// Uses the GPG/Docker pattern: `file-read*` for inode lookup plus
+/// `network-outbound (literal)` for connect(2). No bind/inbound — least
+/// privilege for broker clients that only talk to an existing socket.
+/// Skips paths blocked by overlapping `--deny-path` entries.
+fn emit_unix_socket_connect_allows(
+    sb: &mut String,
+    extra_unix_socket: &[PathBuf],
+    extra_deny: &[PathBuf],
+) {
+    if extra_unix_socket.is_empty() {
+        return;
+    }
+    let mut allowed: Vec<&PathBuf> = Vec::new();
+    'path: for path in extra_unix_socket {
+        let p = path.to_string_lossy();
+        for deny in extra_deny {
+            let d = deny.to_string_lossy();
+            if d == p || p.starts_with(&format!("{d}/")) {
+                continue 'path;
+            }
+        }
+        allowed.push(path);
+    }
+    if allowed.is_empty() {
+        sbpl!(
+            sb,
+            ";; Unix socket connect skipped: --deny-path overlaps all --allow-unix-socket paths"
+        );
+        sbpl!(sb);
+        return;
+    }
+    sbpl!(
+        sb,
+        ";; User-specified Unix socket connect (--allow-unix-socket)"
+    );
+    for path in allowed {
+        let p = path.to_string_lossy();
+        sbpl!(sb, "(allow file-read* (literal \"{p}\"))");
+        sbpl!(sb, "(allow network-outbound (literal \"{p}\"))");
     }
     sbpl!(sb);
 }

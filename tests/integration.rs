@@ -372,6 +372,7 @@ mod macos_tests {
             home_dir: home,
             extra_read: &[],
             extra_write: &[],
+            extra_unix_socket: &[],
             extra_deny: &[],
             existing_home_tool_dirs: None,
             existing_app_dirs: None,
@@ -1245,6 +1246,70 @@ finally:
             output.contains("BLOCKED"),
             "Arbitrary unix sockets in /tmp must be blocked, got: {output}"
         );
+    }
+
+    #[test]
+    fn real_profile_allow_unix_socket_connect() {
+        require_sandbox!();
+        let project = fs::canonicalize(".").unwrap();
+        let home = home_dir();
+
+        let sock_dir = std::env::temp_dir().join(format!(
+            "cplt-uds-flag-{}-{}",
+            std::process::id(),
+            TEST_COUNTER.fetch_add(1, Ordering::SeqCst)
+        ));
+        fs::create_dir_all(&sock_dir).unwrap();
+        let sock_dir = fs::canonicalize(&sock_dir).unwrap();
+        let sock_path = sock_dir.join("echo.sock");
+        let sock_str = sock_path.to_string_lossy().into_owned();
+
+        // Server outside sandbox; connect-only flag should suffice (no --allow-write).
+        let server_cmd = format!(
+            r#"python3 -c "
+import socket, os
+SOCK = '{sock_str}'
+try: os.unlink(SOCK)
+except: pass
+s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+s.bind(SOCK)
+s.listen(1)
+s.settimeout(5)
+conn, _ = s.accept()
+conn.sendall(b'OK')
+conn.close()
+s.close()
+os.unlink(SOCK)
+" &
+sleep 0.3
+"#
+        );
+        let _ = Command::new("bash").arg("-c").arg(&server_cmd).status();
+
+        let extra_unix_socket = vec![sock_path.clone()];
+        let mut opts = default_opts(&project, &home);
+        opts.extra_unix_socket = &extra_unix_socket;
+        let profile = write_real_profile(&opts);
+
+        let client_cmd = format!(
+            r#"python3 -c "
+import socket
+s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+s.connect('{sock_str}')
+print(s.recv(10).decode())
+s.close()
+""#
+        );
+        let (output, success) = run_sandboxed(&profile, &client_cmd);
+
+        fs::remove_file(&profile).ok();
+        let _ = fs::remove_dir(&sock_dir);
+
+        assert!(
+            success,
+            "--allow-unix-socket connect should succeed, got: {output}"
+        );
+        assert!(output.contains("OK"), "expected OK, got: {output}");
     }
 
     #[test]

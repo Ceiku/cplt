@@ -813,6 +813,42 @@ mod e2e_tests {
     }
 
     #[test]
+    fn e2e_print_profile_allow_unix_socket() {
+        require_copilot!();
+        let sock_path =
+            std::env::temp_dir().join(format!("cplt-e2e-unix-sock-{}.sock", std::process::id()));
+        std::fs::write(&sock_path, []).unwrap();
+        let sock_canonical = std::fs::canonicalize(&sock_path).unwrap();
+
+        let output = cplt_cmd()
+            .args([
+                "--allow-unix-socket",
+                &sock_path.to_string_lossy(),
+                "--print-profile",
+            ])
+            .current_dir(project_dir())
+            .output()
+            .expect("binary should run");
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let sock_str = sock_canonical.to_string_lossy();
+
+        assert!(output.status.success());
+        assert!(
+            stdout.contains(&format!(
+                "(allow network-outbound (literal \"{sock_str}\"))"
+            )),
+            "--allow-unix-socket should grant connect-only.\nstdout: {stdout}"
+        );
+        assert!(
+            !stdout.contains(&format!(
+                "(allow network-bind (local unix-socket (subpath \"{sock_str}\")))"
+            )),
+            "--allow-unix-socket must not grant bind.\nstdout: {stdout}"
+        );
+    }
+
+    #[test]
     fn e2e_print_profile_allow_env_files() {
         require_copilot!();
         let output = cplt_cmd()

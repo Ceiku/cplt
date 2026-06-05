@@ -1201,6 +1201,7 @@ mod tests {
             home_dir,
             extra_read: &[],
             extra_write: &[],
+            extra_unix_socket: &[],
             extra_deny: &[],
             existing_home_tool_dirs: None,
             existing_app_dirs: None,
